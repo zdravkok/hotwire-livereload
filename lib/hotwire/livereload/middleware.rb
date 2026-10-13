@@ -10,11 +10,13 @@ module Hotwire
         status, headers, response = @app.call(env)
 
         if html_response?(headers)
+          original = response
           body = get_response_body(response)
           if body&.include?("</head>")
             body = inject_livereload_scripts(body, request)
             headers["Content-Length"] = body.bytesize.to_s
-            response = [body]
+            # Rack::BodyProxy keeps the original body's close, which Rails::Rack::Logger relies on to pop its log tags.
+            response = ::Rack::BodyProxy.new([body]) { original.close if original.respond_to?(:close) }
           end
         end
 
